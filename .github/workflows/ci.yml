@@ -55,6 +55,35 @@ jobs:
       - run: uv run alembic upgrade head
       - run: uv run pytest
 
+  mobile:
+    name: Mobile (analyze, test, debug APK)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.50.1"
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze
+      - run: flutter test
+      # The laptop has no Android SDK, so the APK is built here.
+      # Download it from the run's "Artifacts" section and install it on a phone.
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hisaab-debug-apk
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+
   secrets-scan:
     name: Secrets scan (gitleaks)
     runs-on: ubuntu-24.04

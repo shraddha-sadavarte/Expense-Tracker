@@ -5,7 +5,7 @@ description = "Expense Tracker backend (FastAPI modular monolith)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic==1.20.1",
-    "celery==5.7.0",
+    "celery[redis]==5.7.0",
     "fastapi==0.165.0",
     "gunicorn==27.0.1",
     "psycopg[binary]==3.3.9",

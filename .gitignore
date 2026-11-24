@@ -35,3 +35,6 @@ mobile/android/app/*.jks
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Personal notes (kept out of Git)
+/docs/notes/

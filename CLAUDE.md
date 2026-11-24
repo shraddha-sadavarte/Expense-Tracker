@@ -38,8 +38,15 @@ The source of truth for architecture, database, APIs, security and testing is
   (default `Asia/Kolkata`).
 - Backend: Python 3.12, FastAPI, SQLAlchemy 2 (async, psycopg 3), Alembic,
   Pydantic v2, Celery + Redis. Dependencies are pinned in `backend/uv.lock`.
-- Mobile: Flutter, Material 3, Riverpod, go_router, Dio. Feature-first folders
-  (Doc 9.6): `features/<name>/{data,domain,presentation}`.
+- Mobile: Flutter 3.50.1, Material 3, Riverpod, go_router, Dio, versions pinned
+  exactly in `mobile/pubspec.yaml`. Import Material from
+  `package:material_ui/material_ui.dart` (`package:flutter/material.dart` is
+  deprecated since 3.47). Feature-first folders (Doc 9.6):
+  `features/<name>/{data,domain,presentation}`.
+- The dev laptop has no Android SDK and little disk space: run `flutter analyze`
+  and `flutter test` locally; APKs are built in CI (`hisaab-debug-apk` artifact).
+- Local Postgres from Docker is on host port 5433 (5432 is taken by another
+  PostgreSQL install on the dev machine).
 
 ## Day-to-day commands
 
@@ -54,4 +61,4 @@ Run from the repo root. `make` works in Git Bash / CI; on PowerShell use
 | `make lint` | ruff, ruff format check, mypy, import-linter |
 | `make migrate` | Apply Alembic migrations |
 | `make revision m="message"` | Create a new Alembic revision |
-| `cd mobile && flutter test` | Mobile tests |
+| `cd mobile && flutter analyze && flutter test` | Mobile checks and tests |

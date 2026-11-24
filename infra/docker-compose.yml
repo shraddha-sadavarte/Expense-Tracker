@@ -1,0 +1,60 @@
+# Local development stack (Doc 9.2). Ports are bound to 127.0.0.1 only.
+# Run from the repo root via `make up` / `./infra/dev.ps1 up`.
+
+name: expense
+
+x-backend: &backend
+  build:
+    context: ../backend
+  env_file: ../.env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - ../backend/app:/app/app            # live code for the dev loop
+    - ../backend/migrations:/app/migrations
+
+services:
+  postgres:
+    image: postgres:16
+    env_file: ../.env
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *backend
+    # Dev: auto-reload. The image's default CMD (gunicorn) is what production runs.
+    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    <<: *backend
+    command: celery -A app.workers.celery_app:celery_app worker -Q critical,sync,ai,reports --loglevel=INFO
+
+  beat:
+    <<: *backend
+    # Exactly one beat instance (Doc 8.5).
+    command: celery -A app.workers.celery_app:celery_app beat --loglevel=INFO --schedule /tmp/celerybeat-schedule
+
+volumes:
+  pgdata:

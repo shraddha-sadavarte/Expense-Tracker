@@ -1,0 +1,377 @@
+[project]
+name = "expense-backend"
+version = "0.1.0"
+description = "Expense Tracker backend (FastAPI modular monolith)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic==1.20.1",
+    "celery==5.7.0",
+    "fastapi==0.165.0",
+    "gunicorn==27.0.1",
+    "psycopg[binary]==3.3.9",
+    "pydantic==2.14.4",
+    "pydantic-settings==2.16.3",
+    "redis==8.2.0",
+    "sqlalchemy[asyncio]==2.1.9",
+    "uvicorn[standard]==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "celery-types==0.26.0",
+    "httpx==0.28.1",
+    "hypothesis==6.170.17",
+    "import-linter==2.17",
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.5.0",
+    "ruff==0.17.6",
+]
+
+[tool.uv]
+package = false
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["."]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",   # pycodestyle, pyflakes
+    "I",             # isort
+    "B",             # bugbear
+    "UP",            # pyupgrade
+    "S",             # bandit (security)
+    "N",             # naming
+    "SIM",           # simplify
+    "DTZ",           # timezone-aware datetimes only
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]          # assert is how pytest works
+"migrations/**" = ["E501"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "tests", "migrations"]
+explicit_package_bases = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: needs real PostgreSQL and Redis (make up)",
+]
+
+# ---------------------------------------------------------------- import-linter
+# Enforces the dependency rules in BLUEPRINT Doc 9.7 / Doc 9.8 / Doc 2.4.
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: inside a module, router -> service -> repository -> models"
+type = "layers"
+layers = ["(router)", "(service)", "(repository)", "(models)"]
+containers = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: routers import services only (never repositories or models)"
+type = "forbidden"
+source_modules = ["app.modules.*.router"]
+forbidden_modules = ["app.modules.*.repository", "app.modules.*.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: nothing imports a router (except API aggregation in app.api / app.main)"
+type = "forbidden"
+source_modules = ["app.core", "app.modules", "app.integrations", "app.workers", "app.ai"]
+forbidden_modules = ["app.modules.*.router"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: analytics is read-only (no write-path modules; may notify per Doc 2.4)"
+type = "forbidden"
+source_modules = ["app.modules.analytics"]
+forbidden_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.reports",
+    "app.modules.audit",
+]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.8: ai.analytics has no LLM imports"
+type = "forbidden"
+source_modules = ["app.ai.analytics"]
+forbidden_modules = [
+    "app.integrations.llm",
+    "app.ai.llm",
+    "app.ai.orchestration",
+    "app.ai.prompts",
+]
+
+[[tool.importlinter.contracts]]
+name = "Doc 2.4: core is shared infrastructure and imports no feature code"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.api", "app.modules", "app.integrations", "app.workers", "app.ai"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: workers are thin and never import routers or repositories"
+type = "forbidden"
+source_modules = ["app.workers"]
+forbidden_modules = ["app.api", "app.modules.*.router", "app.modules.*.repository"]
+
+# Doc 2.4 / 9.7: a module never touches another module's repository or tables;
+# it calls that module's service instead. One contract per module.
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only auth itself uses auth.repository / auth.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.auth.repository", "app.modules.auth.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only users itself uses users.repository / users.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.users.repository", "app.modules.users.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only accounts itself uses accounts.repository / accounts.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.accounts.repository", "app.modules.accounts.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only categories itself uses categories.repository / categories.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.categories.repository", "app.modules.categories.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only transactions itself uses transactions.repository / transactions.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.transactions.repository", "app.modules.transactions.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only budgets itself uses budgets.repository / budgets.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.budgets.repository", "app.modules.budgets.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only payments itself uses payments.repository / payments.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.payments.repository", "app.modules.payments.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only sync itself uses sync.repository / sync.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.sync.repository", "app.modules.sync.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only notifications itself uses notifications.repository / notifications.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.reports",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.notifications.repository", "app.modules.notifications.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only reports itself uses reports.repository / reports.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.audit",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.reports.repository", "app.modules.reports.models"]
+
+[[tool.importlinter.contracts]]
+name = "Doc 9.7: only audit itself uses audit.repository / audit.models"
+type = "forbidden"
+source_modules = [
+    "app.modules.auth",
+    "app.modules.users",
+    "app.modules.accounts",
+    "app.modules.categories",
+    "app.modules.transactions",
+    "app.modules.budgets",
+    "app.modules.payments",
+    "app.modules.sync",
+    "app.modules.analytics",
+    "app.modules.notifications",
+    "app.modules.reports",
+    "app.ai",
+    "app.workers",
+]
+forbidden_modules = ["app.modules.audit.repository", "app.modules.audit.models"]

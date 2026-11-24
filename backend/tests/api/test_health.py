@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import get_readiness_checks
 from app.core.health import Check
+from tests.conftest import make_client
 
 
 async def _ok() -> None:
@@ -17,7 +18,7 @@ async def _fail() -> None:
 
 def _with_checks(app: FastAPI, checks: dict[str, Check]) -> TestClient:
     app.dependency_overrides[get_readiness_checks] = lambda: checks
-    return TestClient(app)
+    return make_client(app)
 
 
 def test_health_is_ok(client: TestClient) -> None:

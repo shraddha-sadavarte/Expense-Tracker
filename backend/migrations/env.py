@@ -1,6 +1,7 @@
 """Alembic environment. Uses the app's DATABASE_URL and model metadata."""
 
 import asyncio
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -49,5 +50,8 @@ async def run_migrations_online() -> None:
 
 if context.is_offline_mode():
     run_migrations_offline()
+elif sys.platform == "win32":
+    # psycopg async cannot use Windows' default Proactor loop (only matters off-Docker).
+    asyncio.run(run_migrations_online(), loop_factory=asyncio.SelectorEventLoop)
 else:
     asyncio.run(run_migrations_online())

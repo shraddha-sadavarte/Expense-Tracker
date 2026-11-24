@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from app.core.errors import AppError
+from tests.conftest import make_client
 
 
 class _Body(BaseModel):
@@ -44,7 +45,7 @@ def test_unknown_route_returns_not_found_envelope(client: TestClient) -> None:
 
 def test_app_error_envelope(app: FastAPI) -> None:
     _add_probe_routes(app)
-    with TestClient(app) as client:
+    with make_client(app) as client:
         response = client.get("/_probe/app-error")
     assert response.status_code == 422
     body = response.json()
@@ -54,7 +55,7 @@ def test_app_error_envelope(app: FastAPI) -> None:
 
 def test_validation_error_is_400_and_does_not_echo_input(app: FastAPI) -> None:
     _add_probe_routes(app)
-    with TestClient(app) as client:
+    with make_client(app) as client:
         response = client.post("/_probe/validate", json={"amount_paise": "not-a-number-XYZ"})
     assert response.status_code == 400
     _assert_envelope(response.json(), "VALIDATION_ERROR")
@@ -63,7 +64,7 @@ def test_validation_error_is_400_and_does_not_echo_input(app: FastAPI) -> None:
 
 def test_unhandled_error_is_500_without_internals(app: FastAPI) -> None:
     _add_probe_routes(app)
-    with TestClient(app, raise_server_exceptions=False) as client:
+    with make_client(app, raise_server_exceptions=False) as client:
         response = client.get("/_probe/crash")
     assert response.status_code == 500
     _assert_envelope(response.json(), "INTERNAL")

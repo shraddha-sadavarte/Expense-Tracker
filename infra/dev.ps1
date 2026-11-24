@@ -12,7 +12,11 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Compose = @('compose', '-f', (Join-Path $Root 'infra/docker-compose.yml'))
 
 function Invoke-Step([string]$Exe, [string[]]$Arguments) {
-    & $Exe @Arguments
+    # Native tools (docker, uv) write progress to stderr; Windows PowerShell 5.1
+    # would turn that into a terminating error under 'Stop'. Judge by exit code instead.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Exe @Arguments } finally { $ErrorActionPreference = $previous }
     if ($LASTEXITCODE -ne 0) { throw "$Exe $($Arguments -join ' ') failed ($LASTEXITCODE)" }
 }
 
